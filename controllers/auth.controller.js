@@ -21,9 +21,9 @@ export const signUp = async (req, res, next) => {
         }
 
         const salt = await bcrypt.genSalt(10);
-        const hasedPassword = await bcrypt.hash(password,salt);
+        const hashedPassword = await bcrypt.hash(password,salt);
 
-        const newUsers = await User.create([{name, email, password:hasedPassword}], {session});
+        const newUsers = await User.create([{name, email, password:hashedPassword}], {session});
         const token = jwt.sign({ userId: newUsers[0]._id}, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
 
         await session.commitTransaction();
@@ -46,39 +46,47 @@ export const signUp = async (req, res, next) => {
 };
 export const signIn = async (req, res, next) => {
     try {
-        const {email, password} = req.body;
+        console.log("SignIn request received");
 
-        const user = await User.findOne({email});
+        const { email, password } = req.body;
+        console.log("Received email:", email);
 
-        if(!user) {
-            const error = new Error('User not foubd!!');
+        const user = await User.findOne({ email });
+        if (!user) {
+            console.log("User not found");
+            const error = new Error("User not found!!");
             error.statusCode = 404;
             throw error;
         }
+
+        console.log("User found, checking password...");
         const isPasswordValid = await bcrypt.compare(password, user.password);
-        if(!isPasswordValid) {
-            const error = new Error('password invalid!!');
+        if (!isPasswordValid) {
+            console.log("Invalid password");
+            const error = new Error("Password invalid!!");
             error.statusCode = 401;
             throw error;
         }
-        const newUsers = await User.create([{email, password:hasedPassword}], {session});
-        const token = jwt.sign({ userId: newUsers[0]._id}, JWT_SECRET, {expiresIn: JWT_EXPIRES_IN});
 
+        console.log("Password valid, generating token...");
+        const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+        console.log("Sending response...");
         res.status(200).json({
             success: true,
-            message: 'User sign in successfully',
-            date: {
+            message: "User signed in successfully",
+            data: {
                 token,
-                user
-            }
+                user,
+            },
         });
-    } catch(error){
+    } catch (error) {
+        console.error("Error:", error.message);
         next(error);
     }
 };
-        
+
 
 
 export const signOut = async (req, res, next) => {
-    res.send('Welcome to the subscription service');
 };
