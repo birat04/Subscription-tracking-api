@@ -8,7 +8,7 @@ const subscriptionSchema = new mongoose.Schema({
         minLength: 5,
         maxLength: 50,
     },
-    pricce :{
+    price :{
         type : Number,
         required : [true, 'subscription price is required'],
         min : [0, 'price must be greater than 0'],
@@ -36,12 +36,7 @@ const subscriptionSchema = new mongoose.Schema({
         required : [true, 'payment method is required'],
         enum : ['credit card', 'debit card', 'net banking', 'upi', 'wallet'],
     },
-    status : {
-        type : String,
-        required : [true, 'status is required'],
-        enum : ['active', 'cancelled', 'completed', 'on hold', 'pending', 'failed', 'expired'],
-        default : 'active',
-    },
+   
     startDate : {
         type : Date,
         required : [true, 'start date is required'],
@@ -50,16 +45,7 @@ const subscriptionSchema = new mongoose.Schema({
             message : 'start date must be past date',
         },
     },
-    renewalDate : {
-        type : Date,
-        required : [true, 'renewal date is required'],
-        validdate : {
-            validator : function(value){
-                return value > this.startDate;
-            },
-            message : 'renewal date must be after start date',
-        },
-    },
+   
     user : {
         type : mongoose.Schema.Types.ObjectId,
         ref : 'User',
