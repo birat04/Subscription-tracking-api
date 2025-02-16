@@ -32,7 +32,7 @@ export const createSubscription = async (req, res, next) => {
     const SERVER_URL = process.env.SERVER_URL || 'http://your-server-url.com';
 
     await workflowClient.trigger({
-      url: `${SERVER_URL}/path-to-workflow-endpoint`, 
+      url: `${SERVER_URL}/api/v1/workflows/subscription/reminder`, 
       body: JSON.stringify({ subscriptionId: subscription._id }),
       headers: { 'Content-Type': 'application/json' },
       workflowRunId: subscription._id.toString(), 
