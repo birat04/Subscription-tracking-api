@@ -1,7 +1,6 @@
 import { workflowClient } from '../config/upstash.js';
 import Subscription from '../models/subscription.js';
 
-// Get a subscription by ID
 export const getSubscriptionById = async (req, res, next) => {
   try {
     const subscription = await Subscription.findById(req.params.id);
@@ -21,7 +20,6 @@ export const getSubscriptionById = async (req, res, next) => {
   }
 };
 
-// Create a new subscription and trigger a workflow
 export const createSubscription = async (req, res, next) => {
   try {
     const subscription = await Subscription.create({
@@ -29,18 +27,25 @@ export const createSubscription = async (req, res, next) => {
       user: req.user._id,
     });
 
-    const SERVER_URL = process.env.SERVER_URL || 'http://your-server-url.com';
+    const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5500';
 
-    await workflowClient.trigger({
-      url: `${SERVER_URL}/api/v1/workflows/subscription/reminder`, 
-      body: JSON.stringify({ subscriptionId: subscription._id }),
-      headers: { 'Content-Type': 'application/json' },
-      workflowRunId: subscription._id.toString(), 
-      retries: 3, 
-    });
+    try {
+      await workflowClient.trigger({
+        url: `${SERVER_URL}/api/v1/workflows/subscription/reminder`,
+        body: JSON.stringify({ subscriptionId: subscription._id }),
+        headers: { 'Content-Type': 'application/json' },
+        workflowRunId: subscription._id.toString(),
+        retries: 3,
+      });
+      console.log('Workflow triggered successfully');
+    } catch (error) {
+      console.error('Failed to trigger workflow:', error);
+      next(error);
+    }
 
     res.status(201).json({ success: true, data: subscription });
   } catch (e) {
+    console.error('Error in createSubscription:', e);
     next(e);
   }
 };

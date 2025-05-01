@@ -89,4 +89,20 @@ export const signIn = async (req, res, next) => {
 
 
 export const signOut = async (req, res, next) => {
+    try {
+        const { token } = req.cookies;
+        if (!token) {
+            const error = new Error("No token found in cookies");
+            error.statusCode = 401;
+            throw error;
+        }
+        const { userId } = jwt.verify(token, JWT_SECRET);
+        await User.findByIdAndDelete(userId);
+        res.status(200).json({
+            success: true,
+            message: "User signed out successfully",
+        });
+    } catch (error) {
+        next(error);
+    }
 };
