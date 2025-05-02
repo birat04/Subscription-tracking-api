@@ -1,24 +1,51 @@
 import { workflowClient } from '../config/upstash.js';
 import Subscription from '../models/subscription.js';
+import { AppError } from '../middleware/error.middleware.js';
+import mongoose from 'mongoose';
 
 export const getSubscriptionById = async (req, res, next) => {
   try {
-    const subscription = await Subscription.findById(req.params.id);
+    console.log('Request body:', req.body);
+    console.log('Request headers:', req.headers);
+
+    const secret = req.headers['x-qstash-secret'];
+    if (secret !== process.env.QSTASH_SECRET) {
+      throw new AppError('Unauthorized - Invalid QStash secret', 401);
+    }
+
+    const { subscriptionId } = req.body;
+    console.log('Subscription ID:', subscriptionId);
+    
+    // Validate subscription ID format
+    if (!subscriptionId || !mongoose.Types.ObjectId.isValid(subscriptionId)) {
+      console.log('Invalid subscription ID format');
+      throw new AppError('Invalid subscription ID format', 400);
+    }
+
+    console.log('Looking up subscription with ID:', subscriptionId);
+    const subscription = await Subscription.findById(subscriptionId)
+      .populate('user', 'name email')
+      .select('+status +renewalDate');
+      
+    console.log('Found subscription:', subscription);
+    
     if (!subscription) {
-      const error = new Error('Subscription not found');
-      error.statusCode = 404;
-      throw error;
+      console.log('Subscription not found in database');
+      throw new AppError('Subscription not found', 404);
     }
-    if (String(subscription.user) !== String(req.user._id)) {
-      const error = new Error('You are not authorized to view this subscription');
-      error.statusCode = 403;
-      throw error;
-    }
-    res.status(200).json({ success: true, data: subscription });
-  } catch (e) {
-    next(e);
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        subscription
+      }
+    });
+  } catch (err) {
+    console.error('Error in getSubscriptionById:', err);
+    next(err);
   }
 };
+
 
 export const createSubscription = async (req, res, next) => {
   try {
@@ -27,28 +54,32 @@ export const createSubscription = async (req, res, next) => {
       user: req.user._id,
     });
 
-    const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5500';
+    let workflowRunId = null;
 
     try {
-      await workflowClient.trigger({
-        url: `${SERVER_URL}/api/v1/workflows/subscription/reminder`,
-        body: JSON.stringify({ subscriptionId: subscription._id }),
-        headers: { 'Content-Type': 'application/json' },
-        workflowRunId: subscription._id.toString(),
-        retries: 3,
+      const baseUrl = process.env.SERVER_URL || "http://localhost:3000";
+      const result = await workflowClient.trigger({
+        url: `${baseUrl}/api/v1/workflows/subscription/reminder`,
+        body: {
+          subscriptionId: subscription.id,
+        },
+        headers: {
+          'content-type': 'application/json',
+        },
+        retries: 0,
       });
-      console.log('Workflow triggered successfully');
-    } catch (error) {
-      console.error('Failed to trigger workflow:', error);
-      next(error);
+      workflowRunId = result.workflowRunId;
+    } catch (workflowError) {
+      console.error('Failed to trigger workflow:', workflowError.message);
     }
 
-    res.status(201).json({ success: true, data: subscription });
+    return res.status(201).json({ success: true, data: { subscription, workflowRunId } });
   } catch (e) {
-    console.error('Error in createSubscription:', e);
-    next(e);
+    return next(e);
   }
 };
+
+
 
 export const getUserSubscriptions = async (req, res, next) => {
   try {
