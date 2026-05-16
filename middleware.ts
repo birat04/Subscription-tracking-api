@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/jwt';
-import { arcjetClient } from '@/lib/arcjet';
 
 const PUBLIC_PATHS = [
   '/sign-in',
@@ -15,12 +14,6 @@ export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
   if (pathname.startsWith('/api/')) {
-    if (arcjetClient) {
-      const decision = await arcjetClient.protect(req, { requested: 1 });
-      if (decision.isDenied()) {
-        return NextResponse.json({ success: false, message: 'Blocked' }, { status: 403 });
-      }
-    }
     return NextResponse.next();
   }
 
