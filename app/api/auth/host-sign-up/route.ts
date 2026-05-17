@@ -12,6 +12,14 @@ function zodFirstMessage(e: { issues: { message: string }[] }) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const { setupSecret } = body as { setupSecret?: string };
+
+    // Validate setup secret
+    if (!setupSecret || setupSecret !== process.env.ADMIN_SETUP_SECRET) {
+      return err('Invalid setup secret', 401);
+    }
+
+    // Validate rest of form
     const parsed = signUpSchema.safeParse(body);
     if (!parsed.success) return err(zodFirstMessage(parsed.error), 400);
 
@@ -22,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const hashed = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
-      data: { name, email, password: hashed },
+      data: { name, email, password: hashed, role: 'HOST' },
       select: { id: true, name: true, email: true, role: true },
     });
 

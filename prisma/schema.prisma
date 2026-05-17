@@ -4,10 +4,14 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DB_URI")
 }
 
 
+enum Role {
+  CLIENT
+  HOST
+  ADMIN
+}
 
 enum BillingCycle {
   weekly
@@ -36,6 +40,7 @@ model User {
   name          String
   email         String         @unique
   password      String
+  role          Role           @default(CLIENT)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   subscriptions Subscription[]

@@ -19,14 +19,14 @@ export async function POST(req: NextRequest) {
 
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, name: true, email: true, password: true },
+      select: { id: true, name: true, email: true, password: true, role: true },
     });
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return err('Invalid email or password', 401);
     }
 
-    const token = await signToken({ userId: user.id, email });
-    const res = ok({ user: { id: user.id, name: user.name, email: user.email } });
+    const token = await signToken({ userId: user.id, email, role: String(user.role) });
+    const res = ok({ user: { id: user.id, name: user.name, email: user.email, role: user.role } });
     res.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
