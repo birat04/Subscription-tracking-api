@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/jwt';
 
 const PUBLIC_PATHS = [
   '/sign-in',
@@ -18,34 +17,45 @@ export async function middleware(req: NextRequest) {
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   const token = req.cookies.get('token')?.value;
 
+  async function fetchSession() {
+    try {
+      const url = new URL('/api/auth/me', req.url);
+      const resp = await fetch(url.toString(), {
+        headers: { cookie: req.headers.get('cookie') || '' },
+        cache: 'no-store',
+      });
+      if (!resp.ok) return null;
+      const body = await resp.json();
+      return body?.user ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   if (!isPublic) {
     if (!token) return NextResponse.redirect(new URL('/sign-in', req.url));
-    try {
-      const payload = await verifyToken(token);
-      
-      // Check admin/host routes
-      const isAdminPath = ADMIN_PATHS.some((p) => pathname.startsWith(p));
-      if (isAdminPath && !['HOST', 'ADMIN'].includes(payload.role)) {
-        return pathname.startsWith('/api/')
-          ? NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 })
-          : NextResponse.redirect(new URL('/', req.url));
-      }
-    } catch {
+
+    const user = await fetchSession();
+    if (!user) {
       const res = NextResponse.redirect(new URL('/sign-in', req.url));
       res.cookies.delete('token');
       return res;
     }
+
+    const isAdminPath = ADMIN_PATHS.some((p) => pathname.startsWith(p));
+    if (isAdminPath && !['HOST', 'ADMIN'].includes(user.role)) {
+      return pathname.startsWith('/api/')
+        ? NextResponse.json({ success: false, message: 'Forbidden' }, { status: 403 })
+        : NextResponse.redirect(new URL('/', req.url));
+    }
   }
 
   if (token && isPublic && !pathname.startsWith('/api/')) {
-    try {
-      await verifyToken(token);
-      return NextResponse.redirect(new URL('/', req.url));
-    } catch {
-      const res = NextResponse.next();
-      res.cookies.delete('token');
-      return res;
-    }
+    const user = await fetchSession();
+    if (user) return NextResponse.redirect(new URL('/', req.url));
+    const res = NextResponse.next();
+    res.cookies.delete('token');
+    return res;
   }
 
   return NextResponse.next();
